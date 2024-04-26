@@ -802,7 +802,7 @@ def get_valid_segments(
     return sorted(valids, key=len, reverse=True)
 
 
-def norm_bad_segments(bad_segments) -> List[Tuple[int, int]]:
+def norm_bad_segments(bad_segments, good_segments=None) -> List[Tuple[int, int]]:
     """Normalize bad segments. Return a list of tuples and merge overlapping intervals.
 
     Parameters
@@ -850,23 +850,18 @@ def norm_bad_segments(bad_segments) -> List[Tuple[int, int]]:
     `[(100, 250)]`
 
     """
-    if isinstance(bad_segments, list):
-        # Create boolean representation
-        t_max = np.array(bad_segments).max()
-        boolean_segments = np.zeros(t_max, dtype=int)
 
-        for bads in bad_segments:
-            boolean_segments[bads[0] : bads[1]] = 1
+    if good_segments:
+        t_max = np.array(bad_segments + good_segments).max()
+        boolean_segments = get_boolean_segments(bad_segments, t_max)
+        boolean_segments_good = get_boolean_segments(good_segments, t_max)
 
-    elif isinstance(bad_segments, np.ndarray):
-        boolean_segments = bad_segments.astype(int)
-
+        # Remove good areas from bad sections
+        boolean_segments = boolean_segments - boolean_segments_good
+        boolean_segments[boolean_segments < 0] = 0
     else:
-        raise ValueError(
-            "bad_segments should be a list of tuples or a boolean 1d array."
-            f" Got {type(bad_segments)}"
-        )
-
+        boolean_segments = get_boolean_segments(bad_segments)
+    
     # Find the start and end of each bad segments
     bad_segments_list = [0] if boolean_segments[0] == 1 else []
 
@@ -888,3 +883,25 @@ def norm_bad_segments(bad_segments) -> List[Tuple[int, int]]:
     ]
 
     return bad_segments_tuples
+
+
+def get_boolean_segments(segments, t_max=None):
+    """Docs"""
+    if isinstance(segments, list):
+        # Create boolean representation
+        if t_max == None:
+            t_max = np.array(segments).max()
+        boolean_segments = np.zeros(t_max, dtype=int)
+
+        for segs in segments:
+            boolean_segments[segs[0] : segs[1]] = 1
+
+    elif isinstance(segments, np.ndarray):
+        boolean_segments = segments.astype(int)
+
+    else:
+        raise ValueError(
+            "bad_segments should be a list of tuples or a boolean 1d array."
+            f" Got {type(segments)}"
+        )
+    return boolean_segments

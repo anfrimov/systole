@@ -534,7 +534,7 @@ class Editor:
 
         # Widgets for correction, rejection, valid recording and saving
         self.edition_ = widgets.ToggleButtons(
-            options=["Correction", "Rejection"], diabled=False
+            options=["Correction", "Rejection"], disabled=False
         )
         self.rejection_ = widgets.Checkbox(
             value=True, descrition="Valid recording", disabled=False, indent=True
@@ -615,13 +615,12 @@ class Editor:
         segments."""
 
         # Get the interval in sample idexes
+        tmin, tmax = np.searchsorted(self.x_vec, (xmin, xmax))
         if self.edition_.value == "Correction":
-            tmin, tmax = np.searchsorted(self.x_vec, (xmin, xmax))
             self.peaks[tmin:tmax] = False
             self.plot_signals()
 
         elif self.edition_.value == "Rejection":
-            tmin, tmax = np.searchsorted(self.x_vec, (xmin, xmax))
             self.bad_segments.append(int(tmin))
             self.bad_segments.append(int(tmax))
 
@@ -638,11 +637,29 @@ class Editor:
             self.plot_signals()
 
     def on_add(self, xmin, xmax):
-        """Add a new peak on the maximum signal value from the selected range."""
+        """Add a new peak on the maximum signal value from the selected range 
+        or unmark bad segments."""
+        
         # Get the interval in sample idexes
         tmin, tmax = np.searchsorted(self.x_vec, (xmin, xmax))
-        self.peaks[tmin + np.argmax(self.signal[tmin:tmax])] = True
-        self.plot_signals()
+        if self.edition_.value == "Correction":
+            self.peaks[tmin + np.argmax(self.signal[tmin:tmax])] = True
+            self.plot_signals()
+
+        elif self.edition_.value == "Rejection":
+            good_segments = [(int(tmin), int(tmax))]
+
+            # Makes it a list of tuple
+            bad_segments = [
+                (self.bad_segments[i], self.bad_segments[i + 1])
+                for i in range(0, len(self.bad_segments), 2)
+            ]
+
+            # Merge overlapping segments if any
+            bad_segments = norm_bad_segments(bad_segments, good_segments)
+            self.bad_segments = list(np.array(bad_segments).flatten())
+            print(self.bad_segments)
+            self.plot_signals()
 
     def on_key(self, event):
         """Undoes last span select or quits peak editor"""
